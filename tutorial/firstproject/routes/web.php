@@ -13,8 +13,15 @@ use App\Http\Controllers\ProductsController;
 |
 */
 
-Route::get();
+// Laravel 8 (New)
+//Route::get('/products', [ProductsController::class, 'index']);
+Route::get('/products/about', [ProductsController::class, 'about']);
 
+// Laravel 8 (Also New)
+//Route::get('/products', 'App\Http\Controllers\ProductsController@index');
+
+// Before Laravel 8 (Not Working)
+//Route::get('/products', 'ProductsController@index');
 
 /*
 // Route that sends back a view
