@@ -7,6 +7,7 @@
     <title>Document</title>
 </head>
 <body>
-<h1>Products</h1>
+    <h1>Products</h1>
+    <a href="{{ route('products') }}">Products</a>
 </body>
 </html>
