@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use App\Models\Memo;
 use App\Models\MemoTag;
 use App\Models\Tag;
+use App\Models\Log;
+use App\Models\MemoLog;
 
 use DB;
 class HomeController extends Controller
@@ -28,8 +31,39 @@ class HomeController extends Controller
     public function index()
     {
         $tags = Tag::where('user_id', '=', \Auth::id())->whereNull('deleted_at')->orderBy('id', 'DESC')->get();
-        return view('create', compact('tags'));
+
+        $logs = Log::select('logs.*', 'memos.content AS content')
+            ->whereDate('logs.created_at', Carbon::today())
+            ->leftJoin('memo_logs', 'logs.id', '=', 'memo_logs.log_id',)
+            ->leftJoin('memos', 'memo_logs.memo_id', '=', 'memos.id')
+            ->where('memos.user_id', '=', \Auth::id())
+            ->whereNull('memos.deleted_at')
+            ->get(); // find($id);
+        // dd($logs);
+
+        $chartData = DB::table('logs')
+            ->select(DB::raw('DATE(created_at) as date'), DB::raw('count(*) as tasks'))
+            ->whereMonth('logs.created_at', Carbon::today())
+            ->groupBy('date')
+            ->get();
+
+//        dd($chartData);
+//        dd(json_encode($chartData));
+//        $chartData = json_encode($chartData);
+//        dd($chartData[0]->date); // string
+//        dd(date_format($chartData[0]->date, 'Y-m-d'));
+//        dd(Carbon::parse($chartData[0]->date));
+//        dd(\Carbon\Carbon::parse($chartData[0]->date)->format('m-d'));
+
+        return view('create', compact('tags', 'logs', 'chartData'));
     }
+
+    public function chart()
+    {
+        return view('chart');
+    }
+
+
 
     public function store(Request $request)
     {
@@ -63,14 +97,58 @@ class HomeController extends Controller
             ->where('memos.id', '=', $id)
             ->whereNull('memos.deleted_at')
             ->get(); // find($id);
+//        dd($edit_memo);
 
         $include_tags = [];
         foreach($edit_memo as $memo) {
             array_push($include_tags, $memo['tag_id']);
         }
         $tags = Tag::where('user_id', '=', \Auth::id())->whereNull('deleted_at')->orderBy('id', 'DESC')->get();
-        return view('edit', compact('edit_memo', 'include_tags', 'tags'));
+
+        $logs = Log::select('logs.*', 'memos.content AS content')
+            ->leftJoin('memo_logs', 'logs.id', '=', 'memo_logs.log_id',)
+            ->leftJoin('memos', 'memo_logs.memo_id', '=', 'memos.id')
+            ->where('memos.user_id', '=', \Auth::id())
+            ->whereNull('memos.deleted_at')
+            ->get(); // find($id);
+
+        $chartData = DB::table('logs')
+            ->select(DB::raw('DATE(created_at) as date'), DB::raw('count(*) as tasks'))
+            ->whereMonth('logs.created_at', Carbon::today())
+            ->groupBy('date')
+            ->get();
+
+
+        return view('edit', compact('edit_memo', 'include_tags', 'tags', 'memo', 'logs', 'chartData'));
+
     }
+
+    public function submit($id) {
+
+        $submit_memo = Memo::select('memos.*')
+            ->where('memos.user_id', '=', \Auth::id())
+            ->where('memos.id', '=', $id)
+            ->whereNull('memos.deleted_at')
+            ->get(); // find($id);
+
+        $logs = Log::select('logs.*', 'memos.content AS content')
+            ->leftJoin('memo_logs', 'logs.id', '=', 'memo_logs.log_id',)
+            ->leftJoin('memos', 'memo_logs.memo_id', '=', 'memos.id')
+            ->where('memos.user_id', '=', \Auth::id())
+            ->whereNull('memos.deleted_at')
+            ->get(); // find($id);
+//        dd($logs);
+
+        $chartData = DB::table('logs')
+            ->select(DB::raw('DATE(created_at) as date'), DB::raw('count(*) as tasks'))
+            ->whereMonth('logs.created_at', Carbon::today())
+            ->groupBy('date')
+            ->get();
+
+        return view('submit', compact('submit_memo', 'logs', 'chartData'));
+
+    }
+
 
     public function update(Request $request)
     {
@@ -93,10 +171,38 @@ class HomeController extends Controller
         return redirect(route('home'));
     }
 
+    public function enroll(Request $request)
+    {
+        $posts = $request->all();
+
+        DB::transaction(function () use($posts){
+            $log_id = Log::insertGetId(['detail' => $posts['detail'], 'user_id' => \Auth::id()]);
+            MemoLog::insert(['memo_id' => $posts['memo_id'], 'log_id' => $log_id]);
+        });
+
+        return redirect(route('home'));
+    }
+
+
+
+
     public function destroy(Request $request)
     {
         $posts = $request->all();
         Memo::where('id', $posts['memo_id'])->update(['deleted_at' => date("Y-m-d H:i:s", time())]);
         return redirect(route('home'));
     }
+
+    public function tag_destroy($id)
+    {
+//        $posts = $request->all();
+//        $query_tag = \Request::query('tag');
+
+//        dd($id);
+        Tag::where('id', $id)->update(['deleted_at' => date("Y-m-d H:i:s", time())]);
+        return redirect(route('home'));
+    }
+
+
+
 }

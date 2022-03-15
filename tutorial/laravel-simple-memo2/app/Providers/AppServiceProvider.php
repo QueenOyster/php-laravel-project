@@ -4,7 +4,7 @@ namespace App\Providers;
 
 use App\Models\Memo;
 use App\Models\Tag;
-
+use ConsoleTVs\Charts\Registrar as Charts;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -24,8 +24,13 @@ class AppServiceProvider extends ServiceProvider
      *
      * @return void
      */
-    public function boot()
+    public function boot(Charts $charts)
     {
+        $charts->register([
+            \App\Charts\SampleChart::class
+        ]);
+
+
         view()->composer('*', function ($view) {
             $memo_model = new Memo();
             $memos = $memo_model->getMyMemo();
